@@ -4,6 +4,9 @@ Un lanceur pour jouer à Pokémon à deux, chacun sur sa propre copie du jeu : o
 on avance ensemble, on échange et on combat en ligne. Jeux DS (melonDS), 3DS (Azahar) et Game Boy
 Advance (mGBA), avec rééquilibrage, randomisation et patchs dans l'application.
 
+Des mods s'ajoutent à une partie quand on veut, même déjà commencée (bouton « Mods... ») : le premier
+est une roulette pour miser ses Pokédollars, en gardant Select appuyé en jeu.
+
 Aucun jeu n'est fourni : chacun ajoute sa propre ROM.
 
 ## Télécharger
