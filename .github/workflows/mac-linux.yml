@@ -62,7 +62,7 @@ jobs:
           brew install cmake ninja pkgconf libarchive enet faad2 xdelta libzip lua libepoxy ccache sdl2 zstd
       - name: Cache de compilation
         if: steps.exists.outputs.yes != '1'
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ~/Library/Caches/ccache
           key: ccache-mac-${{ github.run_id }}
@@ -81,6 +81,12 @@ jobs:
           brew uninstall --ignore-dependencies qt@5
           brew install qtbase qtmultimedia qtsvg qttools
           bash mac/build.sh --publier
+      - name: Garder le cache, même après un échec
+        if: always() && steps.exists.outputs.yes != '1'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/Library/Caches/ccache
+          key: ccache-mac-${{ github.run_id }}
 
   linux:
     if: inputs.only == '' || inputs.only == 'linux'
@@ -127,7 +133,7 @@ jobs:
           echo "QT6=$RUNNER_TEMP/qt/6.8.3/gcc_64" >> "$GITHUB_ENV"
       - name: Cache de compilation
         if: steps.exists.outputs.yes != '1'
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/ccache
           key: ccache-linux-${{ github.run_id }}
@@ -139,3 +145,9 @@ jobs:
           grep -q "kVersion\[\] = \"$VERSION\"" launcher/app/src/core/Update.cpp || { echo "Update.cpp ne porte pas la version $VERSION" >&2; exit 1; }
           gh release view "v$VERSION" -R "$GITHUB_REPOSITORY" --json body -q .body > linux/NOUVEAUTES.txt || echo "Pokémon Co-op $VERSION pour Linux." > linux/NOUVEAUTES.txt
           bash linux/build.sh --publier
+      - name: Garder le cache, même après un échec
+        if: always() && steps.exists.outputs.yes != '1'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-linux-${{ github.run_id }}
