@@ -1,0 +1,136 @@
+# Fabrique les versions Mac et Linux de chaque version Windows.
+# Le PC lance ce travail juste après avoir publié v<version> (dev/launcher/package.js) ;
+# il se relance aussi à la main (onglet Actions, « Run workflow »).
+# Les sources viennent des dépôts privés, lus avec des clés de déploiement en lecture seule.
+name: Mac et Linux
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (celle de Update.cpp, sans le v)"
+        required: true
+      pokemon:
+        description: "Commit ou branche de coaxel2/Pokemon"
+        default: main
+      melonds:
+        description: "Commit ou branche de coaxel2/melonds-coop"
+        default: noire2-coop
+      only:
+        description: "mac, linux ou les deux (vide)"
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  mac:
+    if: inputs.only == '' || inputs.only == 'mac'
+    runs-on: macos-15
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Déjà publiée ?
+        id: exists
+        run: |
+          if gh release view "mac-$VERSION" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then echo "yes=1" >> "$GITHUB_OUTPUT"; fi
+      - name: Sources du lanceur
+        if: steps.exists.outputs.yes != '1'
+        uses: actions/checkout@v4
+        with:
+          repository: coaxel2/Pokemon
+          ref: ${{ inputs.pokemon }}
+          ssh-key: ${{ secrets.POKEMON_DEPLOY_KEY }}
+          path: pokemon
+      - name: Sources de melonDS
+        if: steps.exists.outputs.yes != '1'
+        uses: actions/checkout@v4
+        with:
+          repository: coaxel2/melonds-coop
+          ref: ${{ inputs.melonds }}
+          ssh-key: ${{ secrets.MELONDS_DEPLOY_KEY }}
+          path: pokemon/dev/melonds-coop
+      - name: Outils
+        if: steps.exists.outputs.yes != '1'
+        run: |
+          brew install cmake ninja pkgconf qtbase qtmultimedia qtsvg qttools libarchive enet faad2 xdelta qt@5 libzip lua libepoxy ccache sdl2 zstd
+      - name: Cache de compilation
+        if: steps.exists.outputs.yes != '1'
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ccache
+          key: ccache-mac-${{ github.run_id }}
+          restore-keys: ccache-mac-
+      - name: Compilation et publication
+        if: steps.exists.outputs.yes != '1'
+        run: |
+          cd pokemon/dev
+          sed -i '' "s/kVersion = \"[0-9.]*\"/kVersion = \"$VERSION\"/" launcher/app/src/core/MacUpdate.h
+          grep -q "kVersion = \"$VERSION\"" launcher/app/src/core/MacUpdate.h
+          gh release view "v$VERSION" -R "$GITHUB_REPOSITORY" --json body -q .body > mac/NOUVEAUTES.txt || echo "Pokémon Co-op $VERSION pour Mac." > mac/NOUVEAUTES.txt
+          export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
+          bash mac/build.sh --publier
+
+  linux:
+    if: inputs.only == '' || inputs.only == 'linux'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Déjà publiée ?
+        id: exists
+        run: |
+          if gh release view "linux-$VERSION" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then echo "yes=1" >> "$GITHUB_OUTPUT"; fi
+      - name: Sources du lanceur
+        if: steps.exists.outputs.yes != '1'
+        uses: actions/checkout@v4
+        with:
+          repository: coaxel2/Pokemon
+          ref: ${{ inputs.pokemon }}
+          ssh-key: ${{ secrets.POKEMON_DEPLOY_KEY }}
+          path: pokemon
+      - name: Sources de melonDS
+        if: steps.exists.outputs.yes != '1'
+        uses: actions/checkout@v4
+        with:
+          repository: coaxel2/melonds-coop
+          ref: ${{ inputs.melonds }}
+          ssh-key: ${{ secrets.MELONDS_DEPLOY_KEY }}
+          path: pokemon/dev/melonds-coop
+      - name: Outils
+        if: steps.exists.outputs.yes != '1'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ninja-build gcc-12 g++-12 ccache patchelf pkg-config \
+            libsdl2-dev libarchive-dev libzstd-dev libfaad-dev libenet-dev libslirp-dev libpcap-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libvulkan-dev libx11-dev libxext-dev libxrandr-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 libxcb-shape0 \
+            libwayland-dev libasound2-dev libpulse-dev libjack-jackd2-dev libusb-1.0-0-dev libssl-dev libudev-dev \
+            qtbase5-dev qtmultimedia5-dev libqt5opengl5-dev qt5-qmake libqt5multimedia5-plugins \
+            libzip-dev libepoxy-dev liblua5.4-dev libpng-dev libsqlite3-dev libelf-dev \
+            xdelta3 libarchive-tools
+          pip install -q aqtinstall
+          aqt install-qt linux desktop 6.8.3 linux_gcc_64 -m qtmultimedia -O "$RUNNER_TEMP/qt"
+          echo "QT6=$RUNNER_TEMP/qt/6.8.3/gcc_64" >> "$GITHUB_ENV"
+      - name: Cache de compilation
+        if: steps.exists.outputs.yes != '1'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-linux-${{ github.run_id }}
+          restore-keys: ccache-linux-
+      - name: Compilation et publication
+        if: steps.exists.outputs.yes != '1'
+        run: |
+          cd pokemon/dev
+          grep -q "kVersion\[\] = \"$VERSION\"" launcher/app/src/core/Update.cpp || { echo "Update.cpp ne porte pas la version $VERSION" >&2; exit 1; }
+          gh release view "v$VERSION" -R "$GITHUB_REPOSITORY" --json body -q .body > linux/NOUVEAUTES.txt || echo "Pokémon Co-op $VERSION pour Linux." > linux/NOUVEAUTES.txt
+          bash linux/build.sh --publier
