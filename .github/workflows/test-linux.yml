@@ -1,0 +1,51 @@
+# Lance le paquet Linux publié sur une distribution donnée, sous un débogueur, avec un écran virtuel.
+# Sert à reproduire un plantage signalé par un joueur.
+name: Essai Linux
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version publiée (sans linux-)"
+        required: true
+      image:
+        description: "Image Docker de la distribution"
+        default: archlinux:latest
+
+jobs:
+  essai:
+    runs-on: ubuntu-latest
+    container: ${{ inputs.image }}
+    timeout-minutes: 30
+    steps:
+      - name: Paquets d'un bureau ordinaire
+        run: |
+          if command -v pacman > /dev/null; then
+            pacman -Syu --noconfirm --needed xorg-server-xvfb xorg-xauth gdb mesa libxkbcommon-x11 fontconfig ttf-dejavu \
+              libpulse alsa-lib dbus curl tar gzip which procps-ng
+          elif command -v apt-get > /dev/null; then
+            apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q xvfb xauth gdb libgl1 libegl1 libxkbcommon-x11-0 \
+              fontconfig fonts-dejavu-core libpulse0 libasound2t64 dbus curl ca-certificates procps libxcb1 libx11-6
+          elif command -v dnf > /dev/null; then
+            dnf install -y xorg-x11-server-Xvfb xorg-x11-xauth gdb mesa-libGL mesa-libEGL libxkbcommon-x11 fontconfig dejavu-sans-fonts \
+              pulseaudio-libs alsa-lib dbus curl tar gzip procps-ng
+          fi
+      - name: Paquet publié
+        run: |
+          curl -fsSL -o p.tar.gz "https://github.com/coaxel2/pokemon-coop-releases/releases/download/linux-${{ inputs.version }}/Pokemon-Coop-Linux.tar.gz"
+          tar -xzf p.tar.gz
+          ls -la "Pokemon Coop" "Pokemon Coop/app" | head -n 40
+      - name: Bibliothèques manquantes
+        run: |
+          cd "Pokemon Coop/app"
+          for f in PokemonCoop melonDS azahar tools/mgba/mgba-qt; do echo "== $f"; ldd "$f" | grep -E 'not found' || echo ok; done
+      - name: Lancement par le lanceur, comme un joueur
+        run: |
+          export HOME=$(mktemp -d) XDG_CURRENT_DESKTOP=KDE KDE_FULL_SESSION=true XDG_SESSION_TYPE=x11
+          cd "Pokemon Coop"
+          timeout 40 xvfb-run -a -s "-screen 0 1280x800x24" sh -c './"Pokemon Coop"; echo "code de sortie : $?"' || echo "fin : $?"
+      - name: Sous le débogueur
+        run: |
+          export HOME=$(mktemp -d) XDG_CURRENT_DESKTOP=KDE KDE_FULL_SESSION=true XDG_SESSION_TYPE=x11 QT_QPA_PLATFORM=xcb QT_DEBUG_PLUGINS=1
+          cd "Pokemon Coop"
+          timeout 90 xvfb-run -a -s "-screen 0 1280x800x24" gdb -q -batch -ex run -ex bt -ex "info sharedlibrary" --args ./app/PokemonCoop 2>&1 | tail -n 200 || true
