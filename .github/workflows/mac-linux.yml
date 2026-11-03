@@ -126,7 +126,7 @@ jobs:
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 libxcb-shape0 \
             libwayland-dev libasound2-dev libpulse-dev libjack-jackd2-dev libusb-1.0-0-dev libssl-dev libudev-dev \
             qtbase5-dev qtmultimedia5-dev libqt5opengl5-dev qt5-qmake libqt5multimedia5-plugins \
-            libzip-dev libepoxy-dev liblua5.4-dev libpng-dev libsqlite3-dev libelf-dev \
+            libzip-dev zipcmp zipmerge ziptool libepoxy-dev liblua5.4-dev libpng-dev libsqlite3-dev libelf-dev \
             xdelta3 libarchive-tools
           pip install -q aqtinstall
           aqt install-qt linux desktop 6.8.3 linux_gcc_64 -m qtmultimedia -O "$RUNNER_TEMP/qt"
