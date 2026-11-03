@@ -49,7 +49,7 @@ jobs:
           export HOME=$(mktemp -d) QT_QPA_PLATFORM=xcb XDG_CURRENT_DESKTOP=KDE
           cd "Pokemon Coop/app"
           for p in ./melonDS ./azahar ./tools/mgba/mgba-qt; do
-            timeout 15 xvfb-run -a -s "-screen 0 1280x800x24" "$p" > /tmp/out.txt 2>&1; c=$?
+            c=0; timeout 15 xvfb-run -a -s "-screen 0 1280x800x24" "$p" > /tmp/out.txt 2>&1 || c=$?
             echo "== $p : code $c (124 = encore ouvert au bout de 15 s, donc bien démarré)"; tail -n 5 /tmp/out.txt
           done
       - name: Sous le débogueur
