@@ -22,7 +22,7 @@ jobs:
         run: |
           if command -v pacman > /dev/null; then
             pacman -Syu --noconfirm --needed xorg-server-xvfb xorg-xauth gdb mesa libxkbcommon-x11 fontconfig ttf-dejavu \
-              libpulse alsa-lib dbus curl tar gzip which procps-ng
+              harfbuzz libpulse alsa-lib dbus curl tar gzip which procps-ng
           elif command -v apt-get > /dev/null; then
             apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q xvfb xauth gdb libgl1 libegl1 libxkbcommon-x11-0 \
               fontconfig fonts-dejavu-core libpulse0 libasound2t64 dbus curl ca-certificates procps libxcb1 libx11-6
@@ -44,6 +44,14 @@ jobs:
           export HOME=$(mktemp -d) XDG_CURRENT_DESKTOP=KDE KDE_FULL_SESSION=true XDG_SESSION_TYPE=x11
           cd "Pokemon Coop"
           timeout 40 xvfb-run -a -s "-screen 0 1280x800x24" sh -c './"Pokemon Coop"; echo "code de sortie : $?"' || echo "fin : $?"
+      - name: Les trois émulateurs démarrent
+        run: |
+          export HOME=$(mktemp -d) QT_QPA_PLATFORM=xcb XDG_CURRENT_DESKTOP=KDE
+          cd "Pokemon Coop/app"
+          for p in ./melonDS ./azahar ./tools/mgba/mgba-qt; do
+            timeout 15 xvfb-run -a -s "-screen 0 1280x800x24" "$p" > /tmp/out.txt 2>&1; c=$?
+            echo "== $p : code $c (124 = encore ouvert au bout de 15 s, donc bien démarré)"; tail -n 5 /tmp/out.txt
+          done
       - name: Sous le débogueur
         run: |
           export HOME=$(mktemp -d) XDG_CURRENT_DESKTOP=KDE KDE_FULL_SESSION=true XDG_SESSION_TYPE=x11 QT_QPA_PLATFORM=xcb QT_DEBUG_PLUGINS=1
