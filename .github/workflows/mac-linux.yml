@@ -59,7 +59,7 @@ jobs:
       - name: Outils
         if: steps.exists.outputs.yes != '1'
         run: |
-          brew install cmake ninja pkgconf qtbase qtmultimedia qtsvg qttools libarchive enet faad2 xdelta qt@5 libzip lua libepoxy ccache sdl2 zstd
+          brew install cmake ninja pkgconf libarchive enet faad2 xdelta libzip lua libepoxy ccache sdl2 zstd
       - name: Cache de compilation
         if: steps.exists.outputs.yes != '1'
         uses: actions/cache@v4
@@ -75,6 +75,11 @@ jobs:
           grep -q "kVersion = \"$VERSION\"" launcher/app/src/core/MacUpdate.h
           gh release view "v$VERSION" -R "$GITHUB_REPOSITORY" --json body -q .body > mac/NOUVEAUTES.txt || echo "Pokémon Co-op $VERSION pour Mac." > mac/NOUVEAUTES.txt
           export CMAKE_C_COMPILER_LAUNCHER=ccache CMAKE_CXX_COMPILER_LAUNCHER=ccache
+          # Homebrew ne garde pas Qt 5 et Qt 6 ensemble : mGBA (Qt 5) d'abord, le reste ensuite.
+          brew install qt@5
+          bash mac/build.sh --mgba-seulement
+          brew uninstall --ignore-dependencies qt@5
+          brew install qtbase qtmultimedia qtsvg qttools
           bash mac/build.sh --publier
 
   linux:
@@ -109,7 +114,7 @@ jobs:
         if: steps.exists.outputs.yes != '1'
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q ninja-build gcc-12 g++-12 ccache patchelf pkg-config \
+          sudo apt-get install -y -q ninja-build gcc-12 g++-12 ccache patchelf pkg-config extra-cmake-modules \
             libsdl2-dev libarchive-dev libzstd-dev libfaad-dev libenet-dev libslirp-dev libpcap-dev \
             libgl1-mesa-dev libegl1-mesa-dev libvulkan-dev libx11-dev libxext-dev libxrandr-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 libxcb-shape0 \
