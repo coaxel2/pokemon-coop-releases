@@ -118,7 +118,12 @@ jobs:
           path: pokemon/dev/melonds-coop
       - name: Outils
         if: steps.exists.outputs.yes != '1'
+        # Le 11 novembre 2026, les miroirs Ubuntu ne répondaient plus depuis les machines de
+        # GitHub et apt est resté bloqué 50 minutes : abandonner vite un miroir muet, et
+        # échouer en 25 minutes plutôt que d'attendre (la compilation se relance ensuite).
+        timeout-minutes: 25
         run: |
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/99-coop > /dev/null
           sudo apt-get update -q
           sudo apt-get install -y -q ninja-build gcc-12 g++-12 ccache patchelf pkg-config extra-cmake-modules \
             libsdl2-dev libarchive-dev libzstd-dev libfaad-dev libenet-dev libslirp-dev libpcap-dev \
